@@ -3,8 +3,9 @@ package main
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"os"
-	"strings"
+	"reflect"
 	"sync"
 )
 
@@ -29,75 +30,160 @@ func (p *Parser) fileExists() bool {
 	return !os.IsNotExist(err)
 }
 
-func (p *Parser) parse() (map[string]interface{}, error) {
+func (p *Parser) parse() (interface{}, error) {
+
+	p.Lock()
+	defer p.Unlock()
+
 	if !p.fileExists() {
 		return nil, errors.New("file does not exist")
 	}
 
-	json, err := p.parseJson()
+	jsonString, err := p.createJsonString()
 	if err != nil {
 		return nil, err
 	}
-	return json, nil
+
+	jsonMap, err := p.createJsonObject(jsonString, new(interface{}))
+	if err != nil {
+		return nil, err
+	}
+	return jsonMap, nil
 }
 
-func (p *Parser) parseJson() (map[string]interface{}, error) {
-	p.Lock()
-	defer p.Unlock()
+func (p *Parser) createJsonString() (string, error) {
+
 	file, err := os.Open(p.FilePath)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer file.Close()
-	response := make(map[string]interface{}, 1)
 
 	scanner := bufio.NewScanner(file)
-	skip := false
+	jsonString := ""
+
 	for scanner.Scan() {
-		if !skip {
-			skip = true
-			continue
+		jsonString += scanner.Text()
+	}
+	return jsonString, nil
+}
+
+func (p *Parser) createJsonObject(jsonString string, response interface{}) (interface{}, error) {
+
+	var resp interface{}
+	var err error
+	var index int
+	for index = 0; jsonString[index] == ' '; index++ {
+		val := jsonString[index]
+		fmt.Println(val, jsonString[0])
+	}
+	switch jsonString[index] {
+	case '"':
+		str := ""
+		for jsonString[index]!='"'{
+			str += string(jsonString[index])
+			index++
 		}
-		line := scanner.Text()
-		keyValues := strings.Split(line, ",")
-		for i := 0; i < len(keyValues); i++ {
-			key, value, err := p.extractKeyValue(line)
+	case '{':
+		resp, err = p.createJsonObject(jsonString[1:], make(map[string]interface{}))
+		if err != nil {
+			return nil, err
+		}
+	case '[':
+		resp, err = p.createJsonObject(jsonString[1:], make([]interface{}, 0))
+		if err != nil {
+			return nil, err
+		}
+	case '}':
+		return response, nil
+	case ']':
+		return response, nil
+	default:
+		switch reflect.TypeOf(response).Kind() {
+		case reflect.Map:
+			resp, err = p.createJsonMap(jsonString)
 			if err != nil {
 				return nil, err
 			}
-			if key == nil {
-				continue
+		case reflect.Slice:
+			resp, err = p.createJsonArray(jsonString)
+			if err != nil {
+				return nil, err
 			}
-			response[*key] = value
+		}
+	}
+	return resp, nil
+}
+
+func (p *Parser) createJsonMap(jsonString string) (map[string]interface{}, error) {
+
+	response := make(map[string]interface{})
+	for i := 0; jsonString[i] != '}'; i++ {
+		if jsonString[i] == ' ' || jsonString[i] == '"' {
+			continue
+		} else {
+			key := ""
+			for i < len(jsonString) && jsonString[i] != '"' {
+				key += string(jsonString[i])
+				i++
+			}
+			var value interface{}
+			var err error
+			switch jsonString[0] {
+			case '{':
+				value, err = p.createJsonObject(jsonString[i:], make(map[string]interface{}))
+				if err != nil {
+					return nil, err
+				}
+			case '[':
+				value, err = p.createJsonObject(jsonString[i:], make([]interface{}, 0))
+				if err != nil {
+					return nil, err
+				}
+			default:
+				val := ""
+				for i < len(jsonString) && jsonString[i] != ',' {
+					val += string(jsonString[i])
+					i++
+				}
+				value = val
+			}
+			response[key] = value
 		}
 	}
 	return response, nil
 }
 
-func (p *Parser) extractKeyValue(line string) (*string, interface{}, error) {
-	if line[0] == '{' || line[0] == '}' {
-		return nil, nil, nil
+func (p *Parser) createJsonArray(jsonString string) ([]interface{}, error) {
+
+	response := make([]interface{}, 0)
+	for i := 0; jsonString[i] != ']'; i++ {
+		if jsonString[i] == ' ' || jsonString[i] == '"' {
+			continue
+		} else {
+			var value interface{}
+			var err error
+			switch jsonString[0] {
+			case '{':
+				value, err = p.createJsonObject(jsonString[i:], make(map[string]interface{}))
+				if err != nil {
+					return nil, err
+				}
+			case '[':
+				value, err = p.createJsonObject(jsonString[i:], make([]interface{}, 0))
+				if err != nil {
+					return nil, err
+				}
+			default:
+				val := ""
+				for i < len(jsonString) && jsonString[i] != ',' {
+					val += string(jsonString[i])
+					i++
+				}
+				value = val
+			}
+			response = append(response, value)
+		}
 	}
-
-	key, err := p.extractKey(line)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	value, err := p.extractValue(line)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return key, value, nil
-}
-
-func (p *Parser) extractKey(line string) (*string, error) {
-	if !strings.Contains(line, ":") {
-		return nil, errors.New("invalid JSON")
-	}
-}
-
-func (p *Parser) extractValue(line string) (interface{}, error) {
-	return nil, nil
+	return response, nil
 }
