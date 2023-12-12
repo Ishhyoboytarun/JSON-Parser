@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"bufio"
@@ -80,7 +80,7 @@ func (p *Parser) createJsonObject(jsonString string, response interface{}) (inte
 	switch jsonString[index] {
 	case '"':
 		str := ""
-		for jsonString[index]!='"'{
+		for jsonString[index] != '"' {
 			str += string(jsonString[index])
 			index++
 		}
