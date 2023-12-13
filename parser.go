@@ -163,6 +163,7 @@ func (p *Parser) createJsonArray(jsonString string) ([]interface{}, error) {
 		} else {
 			var value interface{}
 			var err error
+			
 			switch jsonString[0] {
 			case '{':
 				value, err = p.createJsonObject(jsonString[i:], make(map[string]interface{}))
