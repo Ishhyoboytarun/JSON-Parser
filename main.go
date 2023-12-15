@@ -43,7 +43,6 @@ func unmarshalJSON(json string) (map[string]interface{}, error) {
 		case ',':
 			key = ""
 		case ':':
-			// Ignore colons in strings
 			for i+1 < len(json) && json[i+1] == ' ' {
 				i++
 			}
