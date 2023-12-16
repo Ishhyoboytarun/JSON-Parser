@@ -3,37 +3,40 @@ package parser
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"os"
-	"reflect"
+	"strconv"
 	"sync"
 )
 
+var jsonMap JsonObject
+
 type Parser struct {
-	sync.Mutex
-	FilePath string
+	lock     sync.Mutex
+	filePath string
 }
 
 func NewParser(path string) *Parser {
 	return &Parser{
-		Mutex:    sync.Mutex{},
-		FilePath: path,
+		lock:     sync.Mutex{},
+		filePath: path,
 	}
 }
 
-func (p *Parser) Parse() {
-	p.parse()
+func (p *Parser) Parse() (JsonObject, error) {
+	return p.parse()
 }
 
+type JsonObject map[string]interface{}
+
 func (p *Parser) fileExists() bool {
-	_, err := os.Stat(p.FilePath)
+	_, err := os.Stat(p.filePath)
 	return !os.IsNotExist(err)
 }
 
-func (p *Parser) parse() (interface{}, error) {
+func (p *Parser) parse() (JsonObject, error) {
 
-	p.Lock()
-	defer p.Unlock()
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
 	if !p.fileExists() {
 		return nil, errors.New("file does not exist")
@@ -44,7 +47,8 @@ func (p *Parser) parse() (interface{}, error) {
 		return nil, err
 	}
 
-	jsonMap, err := p.createJsonObject(jsonString, new(interface{}))
+	jsonMap = JsonObject{}
+	err = p.createJsonObject(jsonString)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +57,7 @@ func (p *Parser) parse() (interface{}, error) {
 
 func (p *Parser) createJsonString() (string, error) {
 
-	file, err := os.Open(p.FilePath)
+	file, err := os.Open(p.filePath)
 	if err != nil {
 		return "", err
 	}
@@ -68,123 +72,93 @@ func (p *Parser) createJsonString() (string, error) {
 	return jsonString, nil
 }
 
-func (p *Parser) createJsonObject(jsonString string, response interface{}) (interface{}, error) {
+func (p *Parser) createJsonObject(jsonString string) error {
 
-	var resp interface{}
-	var err error
-	var index int
-	for index = 0; jsonString[index] == ' '; index++ {
-		val := jsonString[index]
-		fmt.Println(val, jsonString[0])
+	if jsonString == "" {
+		return nil
 	}
-	switch jsonString[index] {
+
+	switch jsonString[0] {
+	case '{':
+		//Ignore the Paranthesis
+		return p.createJsonObject(jsonString[1:])
+
+	case ' ':
+		return p.createJsonObject(jsonString[1:])
+
+	case '}':
+		//Ignore the Paranthesis
+		return p.createJsonObject(jsonString[1:])
+
 	case '"':
-		str := ""
+		index := 1
+
+		// Fetch the token
+		key := ""
 		for jsonString[index] != '"' {
-			str += string(jsonString[index])
+			key += string(jsonString[index])
 			index++
 		}
-	case '{':
-		resp, err = p.createJsonObject(jsonString[1:], make(map[string]interface{}))
-		if err != nil {
-			return nil, err
+		index++
+
+		// Ignore the spaces
+		index = p.ignoreSpaces(index, jsonString)
+
+		if jsonString[index] != ':' {
+			return errors.New("malformed Json")
 		}
-	case '[':
-		resp, err = p.createJsonObject(jsonString[1:], make([]interface{}, 0))
-		if err != nil {
-			return nil, err
+
+		if jsonString[index] == ':' {
+			index++
 		}
-	case '}':
-		return response, nil
-	case ']':
-		return response, nil
+
+		// Ignore the spaces
+		index = p.ignoreSpaces(index, jsonString)
+
+		val := ""
+		if jsonString[index] == '"' {
+			index++
+		}
+		for jsonString[index] != '"' && jsonString[index] != ',' && jsonString[index] != '}' {
+			val += string(jsonString[index])
+			index++
+		}
+		//convert the value according to the appropriate datatype
+		jsonMap[key] = p.getValue(val)
+
+		if jsonString[index] == '"' {
+			index++
+		}
+
+		if jsonString[index] != ',' {
+			index = p.ignoreSpaces(index, jsonString)
+			if jsonString[index] != '}' {
+				return errors.New("malformed Json")
+			}
+		}
+		return p.createJsonObject(jsonString[index+1:])
+
 	default:
-		switch reflect.TypeOf(response).Kind() {
-		case reflect.Map:
-			resp, err = p.createJsonMap(jsonString)
-			if err != nil {
-				return nil, err
-			}
-		case reflect.Slice:
-			resp, err = p.createJsonArray(jsonString)
-			if err != nil {
-				return nil, err
-			}
-		}
+		return errors.New("malformed Json")
 	}
-	return resp, nil
+
+	return nil
 }
 
-func (p *Parser) createJsonMap(jsonString string) (map[string]interface{}, error) {
+func (p *Parser) ignoreSpaces(index int, jsonString string) int {
 
-	response := make(map[string]interface{})
-	for i := 0; jsonString[i] != '}'; i++ {
-		if jsonString[i] == ' ' || jsonString[i] == '"' {
-			continue
-		} else {
-			key := ""
-			for i < len(jsonString) && jsonString[i] != '"' {
-				key += string(jsonString[i])
-				i++
-			}
-			var value interface{}
-			var err error
-			switch jsonString[0] {
-			case '{':
-				value, err = p.createJsonObject(jsonString[i:], make(map[string]interface{}))
-				if err != nil {
-					return nil, err
-				}
-			case '[':
-				value, err = p.createJsonObject(jsonString[i:], make([]interface{}, 0))
-				if err != nil {
-					return nil, err
-				}
-			default:
-				val := ""
-				for i < len(jsonString) && jsonString[i] != ',' {
-					val += string(jsonString[i])
-					i++
-				}
-				value = val
-			}
-			response[key] = value
-		}
+	for index < len(jsonString) && jsonString[index] == ' ' {
+		index++
 	}
-	return response, nil
+	return index
 }
 
-func (p *Parser) createJsonArray(jsonString string) ([]interface{}, error) {
+func (p *Parser) getValue(val string) interface{} {
 
-	response := make([]interface{}, 0)
-	for i := 0; jsonString[i] != ']'; i++ {
-		if jsonString[i] == ' ' || jsonString[i] == '"' {
-			continue
-		} else {
-			var value interface{}
-			var err error
-			
-			switch jsonString[0] {
-			case '{':
-				value, err = p.createJsonObject(jsonString[i:], make(map[string]interface{}))
-				if err != nil {
-					return nil, err
-				}
-			case '[':
-				value, err = p.createJsonObject(jsonString[i:], make([]interface{}, 0))
-				if err != nil {
-					return nil, err
-				}
-			default:
-				val := ""
-				for i < len(jsonString) && jsonString[i] != ',' {
-					val += string(jsonString[i])
-					i++
-				}
-				value = val
-			}
-			response = append(response, value)
-		}
+	if intValue, err := strconv.Atoi(val); err == nil {
+		return intValue
+	} else if floatValue, err := strconv.ParseFloat(val, 64); err == nil {
+		return floatValue
 	}
-	return response, nil
+	return val
 }
