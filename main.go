@@ -1,11 +1,21 @@
 package main
 
 import (
-	"Json-Parser/parser"
+	parser2 "Json-Parser/parser"
 	"fmt"
 )
 
 func main() {
-	parser := parser.NewParser("file.json")
+	parser := parser2.NewParser("tests/basic.json")
 	fmt.Println(parser.Parse())
+
+	p := new(Person)
+	err := parser.Unmarshal(p)
+	if err != nil {
+		panic("Json formatting is wrong in given struct")
+	}
+
+	fmt.Println(p.Name)
+	fmt.Println(p.Age)
+	fmt.Println(p.GPA)
 }
