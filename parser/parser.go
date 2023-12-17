@@ -10,12 +10,14 @@ import (
 	"sync"
 )
 
-var jsonMap JsonObject
+type JsonObject map[string]interface{}
 
 type Parser struct {
 	lock     sync.Mutex
 	filePath string
 }
+
+var jsonMap JsonObject
 
 func NewParser(path string) *Parser {
 	return &Parser{
@@ -55,8 +57,6 @@ func (p *Parser) Unmarshal(result interface{}) error {
 func (p *Parser) Parse() (JsonObject, error) {
 	return p.parse()
 }
-
-type JsonObject map[string]interface{}
 
 func (p *Parser) fileExists() bool {
 	_, err := os.Stat(p.filePath)
