@@ -7,12 +7,12 @@ import (
 
 func main() {
 	parser := parser2.NewParser("tests/basic.json")
-	fmt.Println(parser.Parse())
+	//fmt.Println(parser.Parse())
 
 	p := new(Person)
 	err := parser.Unmarshal(p)
 	if err != nil {
-		panic("Json formatting is wrong in given struct")
+		panic("Invalid struct")
 	}
 
 	fmt.Println(p.Name)
