@@ -1,4 +1,62 @@
-# JSON-Parser
+Certainly! Below is a template for a README.md file for your JSON parsing and unmarshalling library in Go:
+
+---
+
+# JSON Parser
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/Ishhyoboytarun/JSON-Parser)](https://goreportcard.com/report/github.com/Ishhyoboytarun/JSON-Parser)
+
+A lightweight JSON parsing and unmarshalling library for Go.
+
+## Features
+
+- **JSON Parsing**: Efficiently parse JSON data and convert it into a structured format.
+- **Unmarshalling**: Unmarshal JSON into Go structs, making it easy to work with the data.
+
+## Installation
+
+```bash
+go get -u github.com/Ishhyoboytarun/JSON-Parser
+```
+
+## Usage
+```json
+{
+  "Name": "Tarunn Gusain",
+  "Age": 25,
+  "GPA": 3.8
+}
+```
+
+### Unmarshalling
+
+```go
+package main
+
+import (
+	parser2 "Json-Parser/parser"
+	"fmt"
+)
+
+func main() {
+	parser := parser2.NewParser("tests/basic.json")
+	//fmt.Println(parser.Parse())
+
+	p := new(Person)
+	err := parser.Unmarshal(p)
+	if err != nil {
+		panic("Invalid struct")
+	}
+
+	fmt.Println(p.Name)
+	fmt.Println(p.Age)
+	fmt.Println(p.GPA)
+}
+```
+
+## Contributions
+
+Contributions are welcome! Feel free to open issues or pull requests for any improvements or bug fixes.
 
 
 ## Screenshots
