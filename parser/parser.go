@@ -7,17 +7,30 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 )
 
-type JsonObject map[string]interface{}
+type JsonObject interface{}
+
+type JsonMap map[string]interface{}
+
+type JsonString *string
+
+type JsonBoolean bool
+
+type JsonArray []interface{}
+
+type JsonFloat *float64
+
+type JsonInteger *int64
 
 type Parser struct {
 	lock     sync.Mutex
 	filePath string
 }
 
-var jsonMap JsonObject
+var jsonObject JsonObject
 
 func NewParser(path string) *Parser {
 	return &Parser{
@@ -42,7 +55,7 @@ func (p *Parser) Unmarshal(result interface{}) error {
 		tag := field.Tag.Get("json")
 
 		// Check if the field has a corresponding key in the hashmap
-		if value, ok := jsonMap[tag]; ok {
+		if value, ok := jsonObject[tag]; ok {
 			// Convert the value to the type of the struct field
 			fieldValue := reflect.ValueOf(value).Convert(field.Type)
 
@@ -77,12 +90,98 @@ func (p *Parser) parse() (JsonObject, error) {
 		return nil, err
 	}
 
-	jsonMap = JsonObject{}
-	err = p.createJsonObject(jsonString)
+	err = p.chooseStrategy(jsonString)
+
 	if err != nil {
 		return nil, err
 	}
-	return jsonMap, nil
+	return jsonObject, nil
+}
+
+func (p *Parser) chooseStrategy(jsonString string) error {
+
+	switch jsonString[0] {
+	case '{':
+		jsonObject = new(JsonMap)
+		return p.createJsonObject(jsonString)
+
+	case '"':
+		val, err := p.convertJsonStringtoStringValue(jsonString)
+		if err != nil {
+			return err
+		}
+		jsonObject = JsonString(val)
+		return nil
+
+	case 't':
+		if jsonString == "true" {
+			jsonObject = JsonBoolean(true)
+			return nil
+		}
+		return errors.New("invalid Json")
+
+	case 'f':
+		if jsonString == "false" {
+			jsonObject = JsonBoolean(false)
+			return nil
+		}
+		return errors.New("invalid Json")
+
+	case 'n':
+		if jsonString == "null" {
+			jsonObject = nil
+			return nil
+		}
+		return errors.New("invalid Json")
+
+	case '[':
+		jsonObject = new(JsonArray)
+
+	default:
+		ascii := int(jsonString[0])
+		if ascii >= 48 && ascii <= 57 {
+			if strings.Contains(jsonString, ".") {
+				val, err := p.convertJsonStringToFloatValue(jsonString)
+				if err != nil {
+					return err
+				}
+				jsonObject = JsonFloat(val)
+				return nil
+			} else {
+				val, err := p.convertJsonStringToIntegerValue(jsonString)
+				if err != nil {
+					return err
+				}
+				jsonObject = JsonInteger(val)
+				return nil
+			}
+		}
+		return errors.New("invalid Json")
+	}
+	return nil
+}
+
+func (p *Parser) convertJsonStringtoStringValue(jsonString string) (*string, error) {
+	if strings.Contains(jsonString[1:len(jsonString)-1], `"`) {
+		return nil, errors.New("invalid Json")
+	}
+	cval := jsonString[1 : len(jsonString)-1]
+	return &cval, nil
+}
+
+func (p *Parser) convertJsonStringToFloatValue(jsonString string) (*float64, error) {
+	if val, err := strconv.ParseFloat(jsonString, 0); err == nil {
+		return &val, nil
+	}
+	return nil, errors.New("invalid Json")
+}
+
+func (p *Parser) convertJsonStringToIntegerValue(jsonString string) (*int64, error) {
+	if val, err := strconv.Atoi(jsonString); err == nil {
+		cval := int64(val)
+		return &cval, nil
+	}
+	return nil, errors.New("invalid Json")
 }
 
 func (p *Parser) createJsonString() (string, error) {
@@ -110,7 +209,9 @@ func (p *Parser) createJsonObject(jsonString string) error {
 
 	switch jsonString[0] {
 	case '{':
-		//Ignore the Paranthesis
+		if jsonString[1] != '"' || jsonString[1] != '{' {
+			return errors.New("malformed Json")
+		}
 		return p.createJsonObject(jsonString[1:])
 
 	case ' ':
@@ -155,7 +256,7 @@ func (p *Parser) createJsonObject(jsonString string) error {
 		}
 
 		//convert the value according to the appropriate datatype
-		jsonMap[key] = p.getValue(val)
+		jsonObject.(JsonMap)[key] = p.getValue(val)
 
 		if jsonString[index] == '"' {
 			index++
