@@ -1,7 +1,3 @@
-Certainly! Below is a template for a README.md file for your JSON parsing and unmarshalling library in Go:
-
----
-
 # JSON Parser
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/Ishhyoboytarun/JSON-Parser)](https://goreportcard.com/report/github.com/Ishhyoboytarun/JSON-Parser)
