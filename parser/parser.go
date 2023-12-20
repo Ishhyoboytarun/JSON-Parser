@@ -3,7 +3,6 @@ package parser
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -42,28 +41,38 @@ func NewParser(path string) *Parser {
 func (p *Parser) Unmarshal(result interface{}) error {
 
 	p.Parse()
+
+	jsonObjectType := reflect.TypeOf(jsonObject)
+	switch jsonObjectType.Elem().Kind() {
+	case reflect.Map:
+		return p.unmarshalMap(result)
+	case reflect.String:
+		return p.unmarshalString(result)
+	}
+
+	return nil
+}
+
+func (p *Parser) unmarshalMap(result interface{}) error {
+
 	// Check if result is a pointer to a struct
-	structType := reflect.TypeOf(result)
-	if structType.Kind() != reflect.Ptr || structType.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("result must be a pointer to a struct")
+	resultType := reflect.TypeOf(result)
+	if resultType.Kind() != reflect.Ptr || resultType.Elem().Kind() != reflect.Struct {
+		return errors.New("result must be a pointer to a struct")
 	}
 
 	structValue := reflect.ValueOf(result).Elem()
-
-	for i := 0; i < structType.Elem().NumField(); i++ {
-		field := structType.Elem().Field(i)
+	for i := 0; i < resultType.Elem().NumField(); i++ {
+		field := resultType.Elem().Field(i)
 		tag := field.Tag.Get("json")
-
 		// Check if the field has a corresponding key in the hashmap
-		if value, ok := jsonObject[tag]; ok {
+		if value, ok := jsonObject.(JsonMap)[tag]; ok {
 			// Convert the value to the type of the struct field
 			fieldValue := reflect.ValueOf(value).Convert(field.Type)
-
 			// Set the struct field value
 			structValue.Field(i).Set(fieldValue)
 		}
 	}
-
 	return nil
 }
 
