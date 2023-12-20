@@ -76,6 +76,17 @@ func (p *Parser) unmarshalMap(result interface{}) error {
 	return nil
 }
 
+func (p *Parser) unmarshalString(result interface{}) error {
+	// Check if result is a pointer to a struct
+	resultType := reflect.TypeOf(result)
+	if resultType.Kind() != reflect.Ptr || resultType.Elem().Kind() != reflect.String {
+		return errors.New("result must be a pointer to a string")
+	}
+	value := reflect.ValueOf(jsonObject).Convert(resultType.Elem().Field(0).Type)
+	reflect.ValueOf(result).Elem().Field(0).Set(value)
+	return nil
+}
+
 func (p *Parser) Parse() (JsonObject, error) {
 	return p.parse()
 }
