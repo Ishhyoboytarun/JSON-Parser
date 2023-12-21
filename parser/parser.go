@@ -10,19 +10,30 @@ import (
 	"sync"
 )
 
-type JsonObject interface{}
+package json
 
-type JsonMap map[string]interface{}
+import (
+	"bufio"
+	"errors"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+)
 
-type JsonString *string
+type Object any
 
-type JsonBoolean bool
+type Map map[string]Object
 
-type JsonArray []interface{}
+type String *string
 
-type JsonFloat *float64
+type Boolean *bool
 
-type JsonInteger *int64
+type Array []Object
+
+type Float *float64
+
+type Integer *int64
 
 type Parser struct {
 	lock     sync.Mutex
