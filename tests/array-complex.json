@@ -1,0 +1,12 @@
+["Tarunn Gusain", 24, 3.8, [
+  {
+    "name": "Tarunn Gusain"
+  },
+  {
+    "age": 24
+  },
+  {
+    "gpa": 3.8
+  }
+],
+  {"name": "Tarunn Gusain"}, {"age": 24}, {"gpa": 38}, {"name": "Tarunn Gusain", "age": 24, "gpa": 3.8}]
