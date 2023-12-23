@@ -12,7 +12,7 @@ A lightweight JSON parsing and unmarshalling library for Go.
 ## Installation
 
 ```bash
-go get -u github.com/Ishhyoboytarun/Json-Parser
+go get -u github.com/tarunngusain08/Json-Parser
 ```
 
 ## Usage
