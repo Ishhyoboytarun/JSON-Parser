@@ -1,21 +1,19 @@
 package main
 
 import (
-	parser2 "Json-Parser/parser"
+	"Json-Parser/json"
 	"fmt"
 )
 
 func main() {
-	parser := parser2.NewParser("tests/basic.json")
-	//fmt.Println(parser.Parse())
-
-	p := new(Person)
-	err := parser.Unmarshal(p)
+	p := json.NewParser("tests/basic.json")
+	object := new(json.Person)
+	err := p.Unmarshal(object)
 	if err != nil {
-		panic("Invalid struct")
+		panic("invalid struct")
 	}
-
-	fmt.Println(p.Name)
-	fmt.Println(p.Age)
-	fmt.Println(p.GPA)
+	fmt.Println(object.Name)
+	fmt.Println(object.GPA)
+	fmt.Println(object.Age)
+	fmt.Println(object.Company)
 }
